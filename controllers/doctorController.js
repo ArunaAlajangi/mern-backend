@@ -1,177 +1,182 @@
-import doctorModel from "../models/doctorModel.js"
-import bcrypt from 'bcrypt'
-import jwt from 'jsonwebtoken'
-import appointmentModel from "../models/appointmentModel.js"
+import doctorModel from "../models/doctorModel.js";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import appointmentModel from "../models/appointmentModel.js";
 
+// Toggle doctor's availability
 const changeAvailability = async (req, res) => {
-    try {
+  try {
+    const { docId } = req.body;
+    const docData = await doctorModel.findById(docId);
+    await doctorModel.findByIdAndUpdate(docId, { available: !docData.available });
+    res.json({ success: true, message: "Availability Changed" });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
 
-        const { docId } = req.body
-        const docData = await doctorModel.findById(docId)
-        await doctorModel.findByIdAndUpdate(docId, { available: !docData.available })
-        res.json({ success: true, message: 'Availability Changed' })
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
-    }
-}
-
+// Get list of all doctors
 const doctorList = async (req, res) => {
-    try {
+  try {
+    const doctors = await doctorModel.find({}).select("-password -email");
+    res.json({ success: true, doctors });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
 
-        const doctors = await doctorModel.find({}).select(['-password', '-email'])
-
-        res.json({ success: true, doctors })
-
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
-    }
-}
-
-// API for doctor Login
+// Doctor login
 const loginDoctor = async (req, res) => {
-    try {
+  try {
+    const { email, password } = req.body;
+    const doctor = await doctorModel.findOne({ email });
 
-        const { email, password } = req.body
-        const doctor = await doctorModel.findOne({ email })
-
-        if (!doctor) {
-            return res.json({ success: false, message: 'Invalid credentials' })
-        }
-
-        const isMatch = await bcrypt.compare(password, doctor.password)
-
-        if (isMatch) {
-
-            const token = jwt.sign({ id: doctor._id }, process.env.JWT_SECRET)
-            res.json({ success: true, token })
-        } else {
-            res.json({ success: false, message: 'Invalid credentials' })
-        }
-
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+    if (!doctor) {
+      return res.json({ success: false, message: "Invalid credentials" });
     }
-}
 
-// Api to get doctor appointments for doctor panel
+    const isMatch = await bcrypt.compare(password, doctor.password);
+
+    if (isMatch) {
+      const token = jwt.sign({ id: doctor._id }, process.env.JWT_SECRET);
+      res.json({ success: true, token });
+    } else {
+      res.json({ success: false, message: "Invalid credentials" });
+    }
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// Get appointments for a doctor
 const appointmentsDoctor = async (req, res) => {
+  try {
+    const { docId } = req.body;
+    const appointments = await appointmentModel.find({ docId });
+    res.json({ success: true, appointments });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
 
-    try {
-        const { docId } = req.body;
-        const appointments = await appointmentModel.find({ docId })
-
-        res.json({ success: true, appointments })
-
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
-    }
-}
-//  API to mark appointmentt completed for doctor panel
+// Mark appointment as completed
 const appointmentComplete = async (req, res) => {
+  try {
+    const { docId, appointmentId } = req.body;
+    const appointment = await appointmentModel.findById(appointmentId);
 
-    try {
-        const { docId, appointmentId } = req.body;
-        const appointmentData = await appointmentModel.findById(appointmentId);
-        if (appointmentData && appointmentData.docId === docId) {
-
-            await appointmentModel.findByIdAndUpdate(appointmentId, { isCompleted: true })
-            return res.json({ success: true, message: 'appointment completed' })
-        } else {
-
-            return res.json({ success: false, message: 'Mark failed' })
-        }
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+    if (appointment && appointment.docId === docId) {
+      await appointmentModel.findByIdAndUpdate(appointmentId, { isCompleted: true });
+      return res.json({ success: true, message: "Appointment completed" });
+    } else {
+      return res.json({ success: false, message: "Mark failed" });
     }
-}
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
 
-//  API to cancel appointmentt  for doctor panel
-
+// Cancel appointment
 const appointmentCancel = async (req, res) => {
+  try {
+    const { docId, appointmentId } = req.body;
+    const appointment = await appointmentModel.findById(appointmentId);
 
-    try {
-        const { docId, appointmentId } = req.body;
-        const appointmentData = await appointmentModel.findById(appointmentId);
-        if (appointmentData && appointmentData.docId === docId) {
-
-            await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true })
-            return res.json({ success: true, message: 'appointment cancelled' })
-        } else {
-
-            return res.json({ success: false, message: 'cancillation failed' })
-        }
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+    if (appointment && appointment.docId === docId) {
+      await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true });
+      return res.json({ success: true, message: "Appointment cancelled" });
+    } else {
+      return res.json({ success: false, message: "Cancellation failed" });
     }
-}
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
 
-// API to get dashboard dat for doctor panel
+// Doctor Dashboard Data
 const doctorDashboard = async (req, res) => {
-    try {
-        const { docId } = req.body;
-        const appointments = await appointmentModel.find({ docId })
-        let earnings = 0;
-        appointments.map((item) => {
-            if (item.isCompleted || item.payment) {
-                earnings += item.amount;
-            }
-        })
+  try {
+    const { docId } = req.body;
+    const appointments = await appointmentModel.find({ docId });
 
-        let patients = []
-        appointments.map((item) => {
-            if (!patients.includes(item.userId)) {
-                patients.push(item.userId)
-            }
-        })
+    let earnings = 0;
+    let patients = new Set();
 
-        const dashData = {
-            earnings,
-            appointments: appointments.length,
-            patients:patients.length,
-            latestAppointments: appointments.reverse().slice(0,5)
-        }
+    appointments.forEach((item) => {
+      if (item.isCompleted && item.payment) {
+        earnings += item.amount;
+      }
+      patients.add(item.userId.toString());
+    });
 
-        res.json({ success: true, dashData })
+    const dashData = {
+      earnings,
+      appointments: appointments.length,
+      patients: patients.size,
+      latestAppointments: appointments.reverse().slice(0, 5),
+    };
 
+    res.json({ success: true, dashData });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
 
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+// Get Doctor Profile
+const doctorProfile = async (req, res) => {
+  try {
+    const { docId } = req.body;
+    const profileData = await doctorModel.findById(docId).select("-password");
+    res.json({ success: true, profileData });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// Update Doctor Profile
+const updateDoctorProfile = async (req, res) => {
+  try {
+    const { docId, fees, address, available } = req.body;
+    await doctorModel.findByIdAndUpdate(docId, { fees, address, available });
+    res.json({ success: true, message: "Profile Updated" });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// Get Doctor By ID (new function you needed)
+const getDoctorById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const doctor = await doctorModel.findById(id).select("-password");
+    if (!doctor) {
+      return res.json({ success: false, message: "Doctor not found" });
     }
-}
+    res.json({ success: true, doctor });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
 
-// API to get doctor profile for Doctor panel
-const doctorProfile = async(req,res)=>{
-    try {
-        const { docId } = req.body;
-        const profileData= await doctorModel.findById( docId ).select('-password');
-
-        res.json({success:true,profileData})
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
-    }
-}
-// API to update doctor profile data from Doctor model
-const updateDoctorProfile = async(req,res)=>{
-    try {
-        
-        const{docId, fees, address, available} = req.body;
-
-        await doctorModel.findByIdAndUpdate(docId,{fees, address, available})
-
-        res.json({success:true, message:'Profile Updated'})
-
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
-    }
-}
-
-export { changeAvailability, doctorList, loginDoctor, appointmentsDoctor, appointmentComplete, appointmentCancel,doctorDashboard,updateDoctorProfile,doctorProfile }
+export {
+  changeAvailability,
+  doctorList,
+  loginDoctor,
+  appointmentsDoctor,
+  appointmentComplete,
+  appointmentCancel,
+  doctorDashboard,
+  doctorProfile,
+  updateDoctorProfile,
+  getDoctorById, // <-- export it here
+};
